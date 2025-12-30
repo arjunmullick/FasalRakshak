@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>hi</string>
+    <key>CFBundleDisplayName</key>
+    <string>फसल रक्षक</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>fetch</string>
+        <string>processing</string>
+    </array>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchScreenBackground</string>
+        <key>UIImageName</key>
+        <string>LaunchLogo</string>
+    </dict>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+        <string>camera</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>NSCameraUsageDescription</key>
+    <string>फसल की फोटो लेने और रोग पहचानने के लिए कैमरा एक्सेस की आवश्यकता है।</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>गैलरी से फसल की तस्वीरें चुनने के लिए फोटो लाइब्रेरी एक्सेस की आवश्यकता है।</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>आपके क्षेत्र के अनुसार फसल सुझाव देने के लिए स्थान की आवश्यकता है।</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>आवाज कमांड के लिए स्पीच रिकॉग्निशन की आवश्यकता है।</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>आवाज कमांड के लिए माइक्रोफोन की आवश्यकता है।</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleLightContent</string>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>hi</string>
+        <string>en</string>
+        <string>te</string>
+        <string>ta</string>
+        <string>kn</string>
+        <string>bn</string>
+        <string>mr</string>
+        <string>gu</string>
+        <string>pa</string>
+    </array>
+</dict>
+</plist>
