@@ -474,7 +474,6 @@ struct LanguageSelectorView: View {
                 ForEach(AppLanguage.allCases) { language in
                     Button(action: {
                         appState.setLanguage(language)
-                        voiceAssistant.setLanguage(language)
                         dismiss()
                     }) {
                         HStack {

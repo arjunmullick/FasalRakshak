@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import Combine
 
 class OfflineDataManager: ObservableObject {
     static let shared = OfflineDataManager()

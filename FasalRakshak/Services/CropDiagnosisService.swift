@@ -141,13 +141,12 @@ class CropDiagnosisService: ObservableObject {
 
         updateProgress(0.5)
 
-        // Send to backend API for AI analysis
-        let response = try await apiService.analyzeCropImage(imageData: imageData, cropType: cropType?.id.uuidString)
-
-        updateProgress(0.8)
-
-        // Process response and create diagnosis result
-        let result = try processAPIResponse(response, image: image)
+        // Send to backend API for AI analysis (already returns DiagnosisResult)
+        let result = try await apiService.analyzeCropImage(
+            imageData: imageData,
+            cropType: cropType?.id.uuidString,
+            language: "en" // TODO: Use app language
+        )
 
         updateProgress(0.9)
 

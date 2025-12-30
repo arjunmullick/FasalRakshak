@@ -2,161 +2,173 @@
 //  HomeView.swift
 //  FasalRakshak
 //
-//  Main home screen with quick actions and dashboard
+//  Minimalist English-only home screen
 //
 
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var voiceAssistant: VoiceAssistantService
-    @EnvironmentObject var offlineManager: OfflineDataManager
-
+    @StateObject private var offlineManager = OfflineDataManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
+
     @State private var recentDiagnoses: [DiagnosisResult] = []
-    @State private var upcomingReminders: [CropReminder] = []
-    @State private var showingCropSelector = false
-    @State private var selectedCrop: Crop?
+    @State private var navigateToCamera = false
+    @State private var navigateToSymptoms = false
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Offline Banner
-                    NetworkStatusBanner()
+            ZStack {
+                // Background
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
 
-                    // Welcome Section
-                    welcomeSection
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Hero Section
+                        heroSection
 
-                    // Quick Actions
-                    quickActionsSection
+                        // Quick Actions
+                        quickActionsSection
 
-                    // Crop Health Stats
-                    if !recentDiagnoses.isEmpty {
-                        recentDiagnosesSection
+                        // Recent Diagnoses
+                        if !recentDiagnoses.isEmpty {
+                            recentDiagnosesSection
+                        }
+
+                        Spacer(minLength: 40)
                     }
-
-                    // Upcoming Reminders
-                    if !upcomingReminders.isEmpty {
-                        remindersSection
-                    }
-
-                    // Crop Categories
-                    cropCategoriesSection
-
-                    // Weather Info (if available)
-                    weatherInfoSection
-
-                    // Tips Section
-                    dailyTipsSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
                 }
-                .padding()
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("फसल रक्षक")
+            .navigationTitle("Crop Guardian")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    voiceToggleButton
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     ConnectionIndicator()
                 }
             }
             .onAppear {
-                loadData()
-                speakWelcome()
+                loadRecentDiagnoses()
             }
-            .sheet(isPresented: $showingCropSelector) {
-                CropSelectorView(selectedCrop: $selectedCrop)
-            }
+            // Navigation Links (hidden)
+            .background(
+                NavigationLink(destination: CameraCaptureView(), isActive: $navigateToCamera) {
+                    EmptyView()
+                }
+            )
+            .background(
+                NavigationLink(destination: SymptomCheckerView(), isActive: $navigateToSymptoms) {
+                    EmptyView()
+                }
+            )
         }
     }
 
-    // MARK: - Welcome Section
+    // MARK: - Hero Section
 
-    private var welcomeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("नमस्ते! 🙏")
-                .font(.title)
-                .fontWeight(.bold)
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Detect & Protect")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(.primary)
 
-            Text("अपनी फसल की जांच करें और समस्याओं का समाधान पाएं")
-                .font(.subheadline)
+            Text("AI-powered crop disease detection at your fingertips")
+                .font(.system(size: 16, weight: .regular))
                 .foregroundColor(.secondary)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(
-            LinearGradient(
-                colors: [Color.primaryGreen.opacity(0.1), Color.secondaryGreen.opacity(0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(16)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Quick Actions
 
     private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("त्वरित कार्य")
-                .font(.headline)
-                .fontWeight(.semibold)
+        VStack(spacing: 16) {
+            // Primary Action - Camera
+            Button(action: {
+                navigateToCamera = true
+            }) {
+                HStack(spacing: 16) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 56, height: 56)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.green, Color.green.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .cornerRadius(16)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                QuickActionCard(
-                    icon: "camera.fill",
-                    title: "फोटो लें",
-                    subtitle: "फसल स्कैन करें",
-                    color: .primaryGreen
-                ) {
-                    // Navigate to camera
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("NavigateToCamera"),
-                        object: nil
-                    )
-                }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Scan Crop")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
 
-                QuickActionCard(
-                    icon: "photo.on.rectangle",
-                    title: "गैलरी",
-                    subtitle: "फोटो चुनें",
-                    color: .blue
-                ) {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("NavigateToGallery"),
-                        object: nil
-                    )
-                }
+                        Text("Take photo for instant diagnosis")
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(.secondary)
+                    }
 
-                QuickActionCard(
-                    icon: "list.bullet.clipboard",
-                    title: "लक्षण जांच",
-                    subtitle: "समस्या पहचानें",
-                    color: .orange
-                ) {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("NavigateToSymptoms"),
-                        object: nil
-                    )
-                }
+                    Spacer()
 
-                QuickActionCard(
-                    icon: "person.fill.questionmark",
-                    title: "विशेषज्ञ सलाह",
-                    subtitle: "मदद लें",
-                    color: .purple
-                ) {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("NavigateToExpert"),
-                        object: nil
-                    )
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
                 }
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(20)
+                .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+            }
+            .buttonStyle(ScaleButtonStyle())
+
+            // Secondary Actions
+            HStack(spacing: 12) {
+                // Symptoms Checker
+                Button(action: {
+                    navigateToSymptoms = true
+                }) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "list.bullet.clipboard.fill")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundColor(.blue)
+
+                        Text("Symptoms")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 120)
+                    .background(Color.white)
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                // History
+                NavigationLink(destination: DiagnosisHistoryView()) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundColor(.purple)
+
+                        Text("History")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 120)
+                    .background(Color.white)
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+                }
+                .buttonStyle(ScaleButtonStyle())
             }
         }
     }
@@ -164,360 +176,133 @@ struct HomeView: View {
     // MARK: - Recent Diagnoses
 
     private var recentDiagnosesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("हाल की जांच")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                Text("Recent Scans")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.primary)
 
                 Spacer()
 
                 NavigationLink(destination: DiagnosisHistoryView()) {
-                    Text("सभी देखें")
-                        .font(.caption)
-                        .foregroundColor(.primaryGreen)
+                    Text("View All")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.blue)
                 }
             }
 
-            ForEach(recentDiagnoses.prefix(3)) { diagnosis in
-                NavigationLink(destination: DiagnosisDetailView(diagnosis: diagnosis)) {
-                    RecentDiagnosisCard(diagnosis: diagnosis)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-    }
-
-    // MARK: - Reminders Section
-
-    private var remindersSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("आगामी याद दिलाना")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Spacer()
-
-                NavigationLink(destination: RemindersListView()) {
-                    Text("सभी देखें")
-                        .font(.caption)
-                        .foregroundColor(.primaryGreen)
-                }
-            }
-
-            ForEach(upcomingReminders.prefix(2)) { reminder in
-                ReminderCard(reminder: reminder)
-            }
-        }
-    }
-
-    // MARK: - Crop Categories
-
-    private var cropCategoriesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("फसल श्रेणियां")
-                .font(.headline)
-                .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(CropCategory.allCases, id: \.self) { category in
-                        NavigationLink(destination: CropCategoryView(category: category)) {
-                            CropCategoryCard(category: category)
-                        }
-                        .buttonStyle(PlainButtonStyle())
+            VStack(spacing: 12) {
+                ForEach(recentDiagnoses.prefix(3)) { diagnosis in
+                    NavigationLink(destination: DiagnosisDetailView(diagnosis: diagnosis)) {
+                        MinimalDiagnosisCard(diagnosis: diagnosis)
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
-        }
-    }
-
-    // MARK: - Weather Info
-
-    private var weatherInfoSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("मौसम की जानकारी")
-                .font(.headline)
-                .fontWeight(.semibold)
-
-            HStack(spacing: 16) {
-                WeatherInfoItem(icon: "thermometer", value: "28°C", label: "तापमान")
-                WeatherInfoItem(icon: "humidity", value: "65%", label: "आर्द्रता")
-                WeatherInfoItem(icon: "cloud.rain", value: "30%", label: "बारिश")
-            }
-            .padding()
-            .background(Color.skyBlue.opacity(0.1))
-            .cornerRadius(12)
-        }
-    }
-
-    // MARK: - Daily Tips
-
-    private var dailyTipsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("आज की सलाह 💡")
-                .font(.headline)
-                .fontWeight(.semibold)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("नाइट्रोजन की कमी से बचाव")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text("पौधों में पीलापन रोकने के लिए नियमित रूप से जैविक खाद का उपयोग करें। वर्मीकम्पोस्ट एक अच्छा विकल्प है।")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Button(action: {
-                    voiceAssistant.speakHindi("नाइट्रोजन की कमी से बचाव। पौधों में पीलापन रोकने के लिए नियमित रूप से जैविक खाद का उपयोग करें। वर्मीकम्पोस्ट एक अच्छा विकल्प है।")
-                }) {
-                    HStack {
-                        Image(systemName: "speaker.wave.2.fill")
-                        Text("सुनें")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.primaryGreen)
-                }
-            }
-            .padding()
-            .background(Color.sunYellow.opacity(0.1))
-            .cornerRadius(12)
-        }
-    }
-
-    // MARK: - Voice Toggle Button
-
-    private var voiceToggleButton: some View {
-        Button(action: {
-            voiceAssistant.toggleVoice()
-        }) {
-            Image(systemName: voiceAssistant.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                .foregroundColor(voiceAssistant.isEnabled ? .primaryGreen : .gray)
         }
     }
 
     // MARK: - Data Loading
 
-    private func loadData() {
+    private func loadRecentDiagnoses() {
         recentDiagnoses = offlineManager.getDiagnosisHistory()
-        upcomingReminders = offlineManager.getUpcomingReminders()
-    }
-
-    private func speakWelcome() {
-        if voiceAssistant.isEnabled {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                voiceAssistant.speakHindi(VoiceAssistantService.VoiceMessages.welcomeHindi)
-            }
-        }
     }
 }
 
-// MARK: - Quick Action Card
+// MARK: - Minimal Diagnosis Card
 
-struct QuickActionCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 50, height: 50)
-
-                    Image(systemName: icon)
-                        .font(.title2)
-                        .foregroundColor(color)
-                }
-
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.white)
-            .cornerRadius(16)
-            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Recent Diagnosis Card
-
-struct RecentDiagnosisCard: View {
+struct MinimalDiagnosisCard: View {
     let diagnosis: DiagnosisResult
 
     var body: some View {
         HStack(spacing: 12) {
-            // Image thumbnail
-            if let imageData = diagnosis.imageData,
-               let uiImage = UIImage(data: imageData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .cornerRadius(8)
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                        Image(systemName: "leaf.fill")
-                            .foregroundColor(.gray)
-                    )
+            // Health indicator
+            ZStack {
+                Circle()
+                    .fill(healthColor.opacity(0.15))
+                    .frame(width: 48, height: 48)
+
+                Image(systemName: healthIcon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(healthColor)
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                // Crop name or condition
-                Text(diagnosis.identifiedCrop?.nameHindi ?? "फसल जांच")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                Text(cropName)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.primary)
 
-                // Health status
-                HStack(spacing: 4) {
-                    Image(systemName: diagnosis.healthStatus.icon)
-                        .font(.caption)
-                        .foregroundColor(diagnosis.healthStatus.color)
-
-                    Text(diagnosis.healthStatus.displayNameHindi)
-                        .font(.caption)
-                        .foregroundColor(diagnosis.healthStatus.color)
-                }
-
-                // Date
-                Text(formatDate(diagnosis.timestamp))
-                    .font(.caption2)
+                Text(healthStatus)
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.secondary)
+
+                Text(timeAgo)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary.opacity(0.8))
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary.opacity(0.5))
         }
-        .padding()
+        .padding(16)
         .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.03), radius: 3, x: 0, y: 1)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private var cropName: String {
+        diagnosis.identifiedCrop?.name ?? "Unknown Crop"
+    }
+
+    private var healthStatus: String {
+        let score = diagnosis.overallHealthScore
+        switch score {
+        case 80...100: return "Healthy"
+        case 60..<80: return "Mildly Affected"
+        case 40..<60: return "Moderately Affected"
+        case 20..<40: return "Severely Affected"
+        default: return "Critical"
+        }
+    }
+
+    private var healthColor: Color {
+        let score = diagnosis.overallHealthScore
+        switch score {
+        case 80...100: return .green
+        case 60..<80: return .yellow
+        case 40..<60: return .orange
+        case 20..<40: return .red
+        default: return .purple
+        }
+    }
+
+    private var healthIcon: String {
+        let score = diagnosis.overallHealthScore
+        switch score {
+        case 80...100: return "checkmark.circle.fill"
+        case 60..<80: return "exclamationmark.circle.fill"
+        case 40..<60: return "exclamationmark.triangle.fill"
+        default: return "xmark.circle.fill"
+        }
+    }
+
+    private var timeAgo: String {
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "hi_IN")
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter.localizedString(for: diagnosis.timestamp, relativeTo: Date())
     }
 }
 
-// MARK: - Reminder Card
+// MARK: - Scale Button Style
 
-struct ReminderCard: View {
-    let reminder: CropReminder
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.orange.opacity(0.15))
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: reminder.type.icon)
-                    .font(.title3)
-                    .foregroundColor(.orange)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(reminder.titleHindi)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text(formatReminderDate(reminder.scheduledDate))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Text(reminder.type.displayNameHindi)
-                .font(.caption2)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.1))
-                .foregroundColor(.orange)
-                .cornerRadius(8)
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.03), radius: 3, x: 0, y: 1)
-    }
-
-    private func formatReminderDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "hi_IN")
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-// MARK: - Crop Category Card
-
-struct CropCategoryCard: View {
-    let category: CropCategory
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(category.icon)
-                .font(.title)
-
-            Text(category.displayNameHindi)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
-        }
-        .frame(width: 80, height: 80)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-    }
-}
-
-// MARK: - Weather Info Item
-
-struct WeatherInfoItem: View {
-    let icon: String
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.blue)
-
-            Text(value)
-                .font(.headline)
-                .fontWeight(.semibold)
-
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
@@ -526,6 +311,4 @@ struct WeatherInfoItem: View {
 #Preview {
     HomeView()
         .environmentObject(AppState())
-        .environmentObject(VoiceAssistantService.shared)
-        .environmentObject(OfflineDataManager.shared)
 }

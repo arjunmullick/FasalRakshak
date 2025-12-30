@@ -833,6 +833,7 @@ struct FarmerProfile: Identifiable, Codable {
     var createdAt: Date
     var lastActive: Date
 
+    // Custom initializer with default values
     init(
         id: UUID = UUID(),
         name: String,
@@ -859,6 +860,44 @@ struct FarmerProfile: Identifiable, Codable {
         self.registeredCrops = registeredCrops
         self.createdAt = createdAt
         self.lastActive = lastActive
+    }
+
+    // Codable conformance (required because of custom init)
+    enum CodingKeys: String, CodingKey {
+        case id, name, phone, village, district, state, region
+        case preferredLanguage, farmSize, registeredCrops, createdAt, lastActive
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        village = try container.decodeIfPresent(String.self, forKey: .village)
+        district = try container.decodeIfPresent(String.self, forKey: .district)
+        state = try container.decodeIfPresent(String.self, forKey: .state)
+        region = try container.decodeIfPresent(IndianRegion.self, forKey: .region)
+        preferredLanguage = try container.decode(AppLanguage.self, forKey: .preferredLanguage)
+        farmSize = try container.decodeIfPresent(Double.self, forKey: .farmSize)
+        registeredCrops = try container.decode([String].self, forKey: .registeredCrops)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        lastActive = try container.decode(Date.self, forKey: .lastActive)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(phone, forKey: .phone)
+        try container.encodeIfPresent(village, forKey: .village)
+        try container.encodeIfPresent(district, forKey: .district)
+        try container.encodeIfPresent(state, forKey: .state)
+        try container.encodeIfPresent(region, forKey: .region)
+        try container.encode(preferredLanguage, forKey: .preferredLanguage)
+        try container.encodeIfPresent(farmSize, forKey: .farmSize)
+        try container.encode(registeredCrops, forKey: .registeredCrops)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(lastActive, forKey: .lastActive)
     }
 }
 

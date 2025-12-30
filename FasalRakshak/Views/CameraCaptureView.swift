@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import PhotosUI
+import Combine
 
 struct CameraCaptureView: View {
     @EnvironmentObject var voiceAssistant: VoiceAssistantService

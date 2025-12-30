@@ -7,6 +7,8 @@
 
 import Foundation
 import UIKit
+import Combine
+import SwiftUI
 
 class AnalyticsService: ObservableObject {
     static let shared = AnalyticsService()

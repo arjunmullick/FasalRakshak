@@ -16,7 +16,7 @@ class VoiceAssistantService: NSObject, ObservableObject {
     private var audioSession: AVAudioSession?
 
     @Published var isSpeaking: Bool = false
-    @Published var currentLanguage: AppLanguage = .hindi
+    @Published var currentLanguage: AppLanguage = .english  // Changed default to English
     @Published var speechRate: Float = 0.45 // Slower for better comprehension
     @Published var isEnabled: Bool = true
 
@@ -43,7 +43,8 @@ class VoiceAssistantService: NSObject, ObservableObject {
     }
 
     private func loadPreferences() {
-        if let savedLanguage = UserDefaults.standard.string(forKey: "voiceLanguage"),
+        // Use same key as AppState for consistency
+        if let savedLanguage = UserDefaults.standard.string(forKey: "selectedLanguage"),
            let language = AppLanguage(rawValue: savedLanguage) {
             currentLanguage = language
         }
@@ -190,7 +191,34 @@ class VoiceAssistantService: NSObject, ObservableObject {
     /// Set preferred language
     func setLanguage(_ language: AppLanguage) {
         currentLanguage = language
-        UserDefaults.standard.set(language.rawValue, forKey: "voiceLanguage")
+        // Use same key as AppState for consistency
+        UserDefaults.standard.set(language.rawValue, forKey: "selectedLanguage")
+
+        // Provide voice confirmation in the new language
+        let confirmationMessage: String
+        switch language {
+        case .hindi:
+            confirmationMessage = "भाषा हिंदी में बदल गई है।"
+        case .english:
+            confirmationMessage = "Language changed to English."
+        case .telugu:
+            confirmationMessage = "భాష తెలుగులోకి మార్చబడింది."
+        case .tamil:
+            confirmationMessage = "மொழி தமிழாக மாற்றப்பட்டது."
+        case .kannada:
+            confirmationMessage = "ಭಾಷೆ ಕನ್ನಡಕ್ಕೆ ಬದಲಾಯಿಸಲಾಗಿದೆ."
+        case .bengali:
+            confirmationMessage = "ভাষা বাংলায় পরিবর্তন করা হয়েছে।"
+        case .marathi:
+            confirmationMessage = "भाषा मराठीमध्ये बदलली आहे."
+        case .gujarati:
+            confirmationMessage = "ભાષા ગુજરાતીમાં બદલાઈ ગઈ છે."
+        case .punjabi:
+            confirmationMessage = "ਭਾਸ਼ਾ ਪੰਜਾਬੀ ਵਿੱਚ ਬਦਲੀ ਗਈ ਹੈ।"
+        }
+
+        // Speak confirmation with high priority
+        speak(confirmationMessage, priority: .high)
     }
 
     /// Set speech rate (0.0 to 1.0)

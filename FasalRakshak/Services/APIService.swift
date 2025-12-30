@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import Combine
 
 class APIService: ObservableObject {
     static let shared = APIService()
@@ -20,7 +21,9 @@ class APIService: ObservableObject {
 
     init() {
         // Load configuration from environment or config file
-        self.baseURL = ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "https://api.fasalrakshak.in/v1"
+        // For development: http://localhost:8000
+        // For production: Deploy backend and update this URL
+        self.baseURL = ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "http://localhost:8000"
         self.apiKey = ProcessInfo.processInfo.environment["API_KEY"] ?? ""
 
         // Configure URLSession with appropriate timeouts for rural connectivity
@@ -36,16 +39,30 @@ class APIService: ObservableObject {
 
     // MARK: - Crop Analysis
 
-    /// Analyze crop image for diseases
-    func analyzeCropImage(imageData: Data, cropType: String?) async throws -> CropAnalysisResponse {
-        let endpoint = "/analyze"
-        let url = URL(string: baseURL + endpoint)!
+    /// Analyze crop image for diseases using AI backend
+    func analyzeCropImage(imageData: Data, cropType: String?, language: String = "en") async throws -> DiagnosisResult {
+        isLoading = true
+        defer { isLoading = false }
+
+        let endpoint = "/api/diagnose"
+        guard var urlComponents = URLComponents(string: baseURL + endpoint) else {
+            throw APIError.invalidURL
+        }
+
+        // Add query parameters
+        var queryItems: [URLQueryItem] = []
+        if let cropType = cropType {
+            queryItems.append(URLQueryItem(name: "crop_type", value: cropType))
+        }
+        queryItems.append(URLQueryItem(name: "language", value: language))
+        urlComponents.queryItems = queryItems
+
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(Locale.current.language.languageCode?.identifier ?? "hi", forHTTPHeaderField: "Accept-Language")
 
         // Prepare multipart form data
         let boundary = UUID().uuidString
@@ -60,15 +77,10 @@ class APIService: ObservableObject {
         body.append(imageData)
         body.append("\r\n".data(using: .utf8)!)
 
-        // Add crop type if available
-        if let cropType = cropType {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"crop_type\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(cropType)\r\n".data(using: .utf8)!)
-        }
-
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         request.httpBody = body
+
+        print("🌐 Sending request to: \(url.absoluteString)")
 
         let (data, response) = try await session.data(for: request)
 
@@ -76,13 +88,151 @@ class APIService: ObservableObject {
             throw APIError.invalidResponse
         }
 
+        print("📡 Response status code: \(httpResponse.statusCode)")
+
         guard httpResponse.statusCode == 200 else {
+            // Try to parse error message
+            if let errorMessage = String(data: data, encoding: .utf8) {
+                print("❌ Error response: \(errorMessage)")
+            }
             throw APIError.httpError(statusCode: httpResponse.statusCode)
         }
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(CropAnalysisResponse.self, from: data)
+        let apiResponse = try decoder.decode(BackendDiagnosisResponse.self, from: data)
+
+        // Convert backend response to app's DiagnosisResult
+        return convertToAppDiagnosisResult(apiResponse)
+    }
+
+    /// Convert backend API response to app's DiagnosisResult model
+    private func convertToAppDiagnosisResult(_ response: BackendDiagnosisResponse) -> DiagnosisResult {
+        // Parse detected conditions
+        let condition = DiagnosedCondition(
+            conditionName: response.diseaseName,
+            conditionNameHindi: response.diseaseNameLocal,
+            confidence: response.confidence / 100.0, // Convert percentage to 0-1
+            severity: parseSeverity(response.severity),
+            description: response.description,
+            descriptionHindi: response.description // TODO: Get Hindi from backend
+        )
+
+        // Convert treatments to recommendations
+        var recommendations: [Recommendation] = []
+        var priority = 1
+
+        // Add organic treatments as recommendations
+        for orgTreatment in response.organicTreatments {
+            let treatment = Treatment(
+                name: orgTreatment.name,
+                nameHindi: orgTreatment.name, // TODO: Translate
+                description: orgTreatment.description,
+                descriptionHindi: orgTreatment.description,
+                type: .organic,
+                applicationMethod: orgTreatment.method,
+                applicationMethodHindi: orgTreatment.method,
+                frequency: orgTreatment.frequency ?? "As needed",
+                frequencyHindi: orgTreatment.frequency ?? "आवश्यकतानुसार",
+                dosage: "See instructions"
+            )
+
+            recommendations.append(Recommendation(
+                priority: priority,
+                title: "Apply \(orgTreatment.name)",
+                titleHindi: "\(orgTreatment.name) लगाएं",
+                description: orgTreatment.description,
+                descriptionHindi: orgTreatment.description,
+                actionType: .immediate,
+                treatment: treatment
+            ))
+            priority += 1
+        }
+
+        // Add chemical treatments as recommendations
+        for chemTreatment in response.chemicalTreatments {
+            let treatment = Treatment(
+                name: chemTreatment.name,
+                nameHindi: chemTreatment.name,
+                description: chemTreatment.description,
+                descriptionHindi: chemTreatment.description,
+                type: .chemical,
+                applicationMethod: chemTreatment.method,
+                applicationMethodHindi: chemTreatment.method,
+                frequency: "Follow label",
+                frequencyHindi: "लेबल के अनुसार",
+                dosage: "Follow label",
+                precautions: chemTreatment.precautions ?? []
+            )
+
+            recommendations.append(Recommendation(
+                priority: priority,
+                title: "Apply \(chemTreatment.name)",
+                titleHindi: "\(chemTreatment.name) लगाएं",
+                description: chemTreatment.description,
+                descriptionHindi: chemTreatment.description,
+                actionType: .scheduled,
+                treatment: treatment
+            ))
+            priority += 1
+        }
+
+        // Add preventive measures as recommendations
+        for (index, measure) in response.preventiveMeasures.enumerated() {
+            recommendations.append(Recommendation(
+                priority: priority + index,
+                title: "Prevention",
+                titleHindi: "रोकथाम",
+                description: measure,
+                descriptionHindi: measure, // TODO: Translate
+                actionType: .preventive
+            ))
+        }
+
+        // Convert affected parts to affected areas with placeholder bounding boxes
+        let affectedAreas = response.affectedParts.enumerated().map { (index, part) in
+            AffectedArea(
+                boundingBox: CGRect(x: 0, y: 0, width: 100, height: 100),
+                label: part,
+                confidence: response.confidence / 100.0
+            )
+        }
+
+        return DiagnosisResult(
+            imageData: nil,
+            identifiedCrop: nil,
+            diagnosedConditions: [condition],
+            overallHealthScore: calculateOverallHealth(response.confidence, response.severity),
+            recommendations: recommendations,
+            affectedAreas: affectedAreas
+        )
+    }
+
+    private func parseSeverity(_ severity: String) -> DiseaseSeverity {
+        switch severity.lowercased() {
+        case "low": return .low
+        case "moderate", "medium": return .moderate
+        case "high", "severe": return .high
+        case "critical": return .critical
+        default: return .moderate
+        }
+    }
+
+    private func calculateOverallHealth(_ confidence: Double, _ severity: String) -> Double {
+        // Calculate health score from 0-100
+        let severityImpact: Double
+        switch severity.lowercased() {
+        case "low": severityImpact = 10
+        case "moderate", "medium": severityImpact = 30
+        case "high", "severe": severityImpact = 50
+        case "critical": severityImpact = 70
+        default: severityImpact = 30
+        }
+
+        let confidenceFactor = confidence / 100.0
+        let totalImpact = severityImpact * confidenceFactor
+
+        return max(0, 100 - totalImpact)
     }
 
     // MARK: - Expert Consultation
@@ -303,6 +453,7 @@ class APIService: ObservableObject {
 // MARK: - API Errors
 
 enum APIError: Error, LocalizedError {
+    case invalidURL
     case invalidResponse
     case httpError(statusCode: Int)
     case decodingError
@@ -311,6 +462,8 @@ enum APIError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .invalidURL:
+            return "Invalid API URL"
         case .invalidResponse:
             return "Invalid server response"
         case .httpError(let statusCode):
@@ -326,6 +479,8 @@ enum APIError: Error, LocalizedError {
 
     var errorDescriptionHindi: String {
         switch self {
+        case .invalidURL:
+            return "अमान्य API URL"
         case .invalidResponse:
             return "सर्वर प्रतिक्रिया अमान्य"
         case .httpError:
@@ -371,4 +526,30 @@ struct AnalyticsEvent: Codable {
     let deviceId: String
     let appVersion: String
     let region: String?
+}
+
+// MARK: - Backend API Models
+
+/// Response from the FastAPI backend
+struct BackendDiagnosisResponse: Codable {
+    let diseaseName: String
+    let diseaseNameLocal: String
+    let confidence: Double
+    let severity: String
+    let affectedParts: [String]
+    let description: String
+    let causes: [String]
+    let organicTreatments: [BackendTreatment]
+    let chemicalTreatments: [BackendTreatment]
+    let preventiveMeasures: [String]
+    let diagnosisId: String
+    let timestamp: String
+}
+
+struct BackendTreatment: Codable {
+    let name: String
+    let description: String
+    let method: String
+    let frequency: String?
+    let precautions: [String]?
 }

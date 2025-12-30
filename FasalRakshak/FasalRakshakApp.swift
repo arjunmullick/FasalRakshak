@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UserNotifications
+import Combine
 
 @main
 struct FasalRakshakApp: App {
@@ -77,9 +78,21 @@ struct FasalRakshakApp: App {
 // MARK: - App State Management
 class AppState: ObservableObject {
     @Published var isOnboarded: Bool = UserDefaults.standard.bool(forKey: "isOnboarded")
-    @Published var selectedLanguage: AppLanguage = .hindi
+    @Published var selectedLanguage: AppLanguage = .english  // Changed default to English
     @Published var isOfflineMode: Bool = false
     @Published var currentUser: FarmerProfile?
+
+    init() {
+        // Load saved language preference, default to English if not set
+        if let savedLanguage = UserDefaults.standard.string(forKey: "selectedLanguage"),
+           let language = AppLanguage(rawValue: savedLanguage) {
+            selectedLanguage = language
+        } else {
+            // Set default to English for first launch
+            selectedLanguage = .english
+            UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "selectedLanguage")
+        }
+    }
 
     func completeOnboarding() {
         isOnboarded = true
@@ -89,11 +102,14 @@ class AppState: ObservableObject {
     func setLanguage(_ language: AppLanguage) {
         selectedLanguage = language
         UserDefaults.standard.set(language.rawValue, forKey: "selectedLanguage")
+
+        // Also update voice assistant to match
+        VoiceAssistantService.shared.setLanguage(language)
     }
 }
 
 // MARK: - Supported Languages
-enum AppLanguage: String, CaseIterable, Identifiable {
+enum AppLanguage: String, CaseIterable, Identifiable, Codable {
     case hindi = "hi"
     case english = "en"
     case telugu = "te"

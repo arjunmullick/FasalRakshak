@@ -14,37 +14,21 @@ struct ContentView: View {
     enum Tab: Int, CaseIterable {
         case home = 0
         case camera = 1
-        case symptoms = 2
-        case history = 3
-        case profile = 4
+        case history = 2
 
         var icon: String {
             switch self {
             case .home: return "house.fill"
             case .camera: return "camera.fill"
-            case .symptoms: return "list.bullet.clipboard.fill"
             case .history: return "clock.fill"
-            case .profile: return "person.fill"
             }
         }
 
         var title: String {
             switch self {
-            case .home: return "होम"
-            case .camera: return "कैमरा"
-            case .symptoms: return "लक्षण"
-            case .history: return "इतिहास"
-            case .profile: return "प्रोफाइल"
-            }
-        }
-
-        var englishTitle: String {
-            switch self {
             case .home: return "Home"
-            case .camera: return "Camera"
-            case .symptoms: return "Symptoms"
+            case .camera: return "Scan"
             case .history: return "History"
-            case .profile: return "Profile"
             }
         }
     }
@@ -75,33 +59,19 @@ struct ContentView: View {
                 }
                 .tag(Tab.camera)
 
-            SymptomCheckerView()
-                .tabItem {
-                    Image(systemName: Tab.symptoms.icon)
-                    Text(Tab.symptoms.title)
-                }
-                .tag(Tab.symptoms)
-
             DiagnosisHistoryView()
                 .tabItem {
                     Image(systemName: Tab.history.icon)
                     Text(Tab.history.title)
                 }
                 .tag(Tab.history)
-
-            FarmerProfileView()
-                .tabItem {
-                    Image(systemName: Tab.profile.icon)
-                    Text(Tab.profile.title)
-                }
-                .tag(Tab.profile)
         }
-        .accentColor(.primaryGreen)
+        .accentColor(.green)
         .onAppear {
-            // Configure tab bar for large touch targets
+            // Configure tab bar appearance
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = .white
+            appearance.backgroundColor = .systemBackground
 
             UITabBar.appearance().standardAppearance = appearance
             if #available(iOS 15.0, *) {
